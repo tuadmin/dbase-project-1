@@ -90,23 +90,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('HOA_ALLOWED').value = null; // Reset HOA_ALLOWED if HOA is not applicable
             }
         }
-
+        let abortController = null;
         function checkDuplicatePhone() {
+            if (abortController && !abortController.signal.aborted) {
+                abortController.abort();
+            }
             const phoneInput = document.getElementById('PHONE_NUMBER').value;
             const matchResults = document.getElementById('duplicate-matches');
             if (phoneInput.length < 3) {
                 matchResults.innerHTML = "";
                 return;
             }
-
-            fetch('check_duplicates.php?phone=' + phoneInput)
+            abortController = new AbortController();
+            fetch('check_duplicates.php?phone=' + phoneInput, {signal: abortController.signal})
                 .then(response => response.json())
                 .then(data => {
-                    if (data.length > 0) {
+                    if (data.duplicates && data.duplicates.length > 0) {
                         matchResults.innerHTML = "<strong>Possible Matches:</strong><br>";
-                        data.forEach(entry => {
-                            matchResults.innerHTML += `${entry.CONTACT} - ${entry.PHONE_NUMBER} (${entry.PROPERTY_NAME})<br>`;
+                        data.duplicates.forEach(entry => {
+                            const resaltPhone = entry.PHONE_NUMBER.replace(phoneInput, `<b>${phoneInput}</b>`);
+                            matchResults.innerHTML += `${entry.CONTACT} - ${resaltPhone} (${entry.PROPERTY_NAME})<br>`;
                         });
+                        
+                        matchResults.innerHTML.replace(/ph/, '');
                     } else {
                         matchResults.innerHTML = "";
                     }
@@ -130,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 phone = `(${phone}`;
             }
             document.getElementById('PHONE_NUMBER').value = phone;
+            document.getElementById('PHONE_NUMBER').dispatchEvent(new Event('inputFormat'));
         }
 
 
@@ -147,9 +154,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 document.addEventListener('DOMContentLoaded', () => {
     toggleHOAField();
+    
 });
 
     </script>
+<?php if($id==null):?>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+        
+            document.getElementById('PHONE_NUMBER').addEventListener('inputFormat', checkDuplicatePhone);
+        });
+    </script>
+<?php endif; ?>
 </head>
 <body>
 <div class="container">
@@ -161,7 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <div class="mb-3">
         <label class="form-label">Status</label>
-        <input type="checkbox" name="STATUS" <?= (isset($property['STATUS']) && $property['STATUS'] === 'yes') ? 'checked' : '' ?>> Active
+        <?php if($id):?>
+            <input type="checkbox" name="STATUS" <?= (isset($property['STATUS']) && $property['STATUS'] === 'yes') ? 'checked' : '' ?> onchange="toogleStatus(<?=$id?>,this)"> Active
+        <?php else: ?>
+            <input type="checkbox" name="STATUS" <?= (isset($property['STATUS']) && $property['STATUS'] === 'yes') ? 'checked' : '' ?>> Active
+        <?php endif; ?>
     </div>
 
     <div class="mb-3">
@@ -207,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="mb-3">
         <label class="form-label">Phone Number</label>
         <input type="text" class="form-control" id="PHONE_NUMBER" name="PHONE_NUMBER" value="<?= htmlspecialchars($property['PHONE_NUMBER'] ?? '') ?>" onkeyup="formatPhoneNumber()">
+        <div id="duplicate-matches"></div>
     </div>
 
  <div class="mb-3">
@@ -229,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <div class="mb-3" id="hoa-allowed-field" style="display: none;">
     <label class="form-label">HOA Allowed</label>
-    <select class="form-select" name="HOA_ALLOWED">
+    <select class="form-select" name="HOA_ALLOWED" id="HOA_ALLOWED">
         <option value="" <?= (!isset($property['HOA_ALLOWED']) || is_null($property['HOA_ALLOWED'])) ? 'selected' : '' ?>>Not Set</option>
         <option value="yes" <?= (isset($property['HOA_ALLOWED']) && $property['HOA_ALLOWED'] === 'yes') ? 'selected' : '' ?>>Yes</option>
         <option value="no" <?= (isset($property['HOA_ALLOWED']) && $property['HOA_ALLOWED'] === 'no') ? 'selected' : '' ?>>No</option>
@@ -251,5 +272,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     </div>
 </div>
+<script>
+    toogleStatus = (id,status) => {
+        status.disabled = true;
+        const form = new FormData();
+        form.append('status', status.checked ? 'yes' : 'no');
+        fetch(`toggle_status.php?id=${id}`
+,{
+            method: 'POST',
+            body: form                        
+})
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    
+                }else{
+                    status.checked = !status.checked;
+                    alert(data.message);
+                }
+            })
+            .finally(() => {
+                status.disabled = false;
+            });
+    }
+</script>
 </body>
 </html>

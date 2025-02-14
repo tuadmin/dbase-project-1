@@ -27,7 +27,7 @@ function getStateFullName($abbr) {
     return $states[$abbr] ?? $abbr;
 }
 
-$query = "SELECT * FROM properties WHERE STATUS = 'yes'";  // Default to active records only
+$query = "SELECT *, CONCAT(HOUSE_NUMBER, ' ', STREET_NAME)AS ADDRESS FROM properties WHERE STATUS = 'yes'";  // Default to active records only
 $params = [];  // Array to store query parameters
 
 if ($filterStatus === 'inactive') {
@@ -167,7 +167,7 @@ $properties = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <th>District</th>
                         <th>City Permit</th>
                         <th>HOA</th>
-                        <th>Notes</th>
+                        <!-- <th>Notes</th> -->
                     </tr>
                 </thead>
                 <tbody>
@@ -176,7 +176,8 @@ $properties = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <td><?= htmlspecialchars($property['PROPERTY_NAME']) ?></td>
                         <td class="contact-info">
                             <?= htmlspecialchars($property['CONTACT']) ?><br>
-                            <?= htmlspecialchars($property['HOUSE_NUMBER'] . ' ' . $property['STREET_NAME']) ?><br>
+                            <!-- ($property['HOUSE_NUMBER'] . ' ' . $property['STREET_NAME']) <br> -->
+                            <?= htmlspecialchars($property['ADDRESS'] ) ?><br>
                             <?= htmlspecialchars($property['CITY'] . ', ' . getStateFullName($property['STATE']) . ' ' . $property['ZIPCODE']) ?><br>
                             <?= htmlspecialchars($property['PHONE_NUMBER']) ?>
                         </td>
@@ -188,7 +189,16 @@ $properties = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <span class="dot <?= $property['HOA_ALLOWED'] === 'yes' ? 'dot-green' : 'dot-red' ?>"></span>
                             <?php endif; ?>
                         </td>
-                        <td class="property-notes"><?= htmlspecialchars($property['NOTES'] ?? '--') ?></td>
+                        
+                    </tr>
+                    <tr>
+                       
+                        <td colspan="6">
+                            <div class="property-notes">
+                                <strong>Notes:</strong> 
+                                <?= htmlspecialchars($property['NOTES'] ?? '') ?>
+                            </div>
+                        </td>
                     </tr>
     <?php endforeach; ?>
                 </tbody>
